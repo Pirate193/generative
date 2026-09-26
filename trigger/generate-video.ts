@@ -1,5 +1,5 @@
 import { logger, task } from "@trigger.dev/sdk/v3";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import { ConvexHttpClient } from "convex/browser";
@@ -19,12 +19,14 @@ const QWEN_MAX = process.env.QWEN_MAX_MODEL ?? "Qwen-Ambassador/Qwen3.8-Max";
 // Fast model: search query extraction, skill selection
 const QWEN_PLUS = process.env.QWEN_PLUS_MODEL ?? "Qwen-Ambassador/Qwen3.7-Plus";
 
-const MANIM_API_URL =
-  process.env.MANIM_API_URL ?? "https://manim-api-92080499980.us-central1.run.app";
+// Manim render microservice (hardcoded - verified working endpoint)
+const MANIM_API_URL = "https://foldex-renderer-777822234917.us-central1.run.app";
 
 // Some OpenAI-compatible endpoints (like ModelScope) don't reliably support
 // tool-calling / structured-output modes, so we ask for plain JSON text and
 // validate it with zod, retrying with feedback when parsing fails.
+// We also STREAM the response: long non-streaming generations (e.g. the full
+// Manim code call) hit the gateway's idle timeout and fail with 504s.
 function extractJson(text: string): unknown {
   const cleaned = text
     .trim()
@@ -48,26 +50,28 @@ async function generateJson<T extends z.ZodType>(
   let lastError = "";
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const { text } = await generateText({
-      model: qwen(model),
-      system:
-        `${system}\n\n` +
-        `You MUST respond with ONLY one valid JSON object. No markdown fences, no commentary.\n` +
-        `The JSON object must conform to this schema:\n${schemaText}` +
-        (lastError
-          ? `\n\nYour previous response was invalid: ${lastError}\nReturn the corrected JSON object.`
-          : ""),
-      prompt,
-    });
-
     try {
-      const result = schema.safeParse(extractJson(text));
-      if (result.success) return result.data;
-      lastError = result.error.message.slice(0, 500);
+      const result = streamText({
+        model: qwen(model),
+        maxRetries: 1,
+        system:
+          `${system}\n\n` +
+          `You MUST respond with ONLY one valid JSON object. No markdown fences, no commentary.\n` +
+          `The JSON object must conform to this schema:\n${schemaText}` +
+          (lastError
+            ? `\n\nYour previous response was invalid: ${lastError}\nReturn the corrected JSON object.`
+            : ""),
+        prompt,
+      });
+      const text = await result.text;
+
+      const parsed = schema.safeParse(extractJson(text));
+      if (parsed.success) return parsed.data;
+      lastError = parsed.error.message.slice(0, 500);
     } catch (e) {
       lastError = (e instanceof Error ? e.message : String(e)).slice(0, 500);
     }
-    logger.warn("Invalid JSON from model, retrying", { attempt, error: lastError });
+    logger.warn("Model call failed, retrying", { model, attempt, error: lastError });
   }
 
   throw new Error(`Model failed to produce valid JSON after 3 attempts: ${lastError}`);
@@ -976,8 +980,7 @@ ${directorScript.script}
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            scene_name: currentSceneName,
-            transcript: currentTranscript,
+            scenename: currentSceneName,
             code: currentCode,
           }),
         });
