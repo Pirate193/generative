@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useGuestIdentity } from "@/lib/fingerprinthook";
+import { useGuestId } from "@/lib/guest";
 import { VideoPlayer } from "@/components/videoplayer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/header";
@@ -27,7 +27,6 @@ import { formatRelativeTime } from "@/lib/dateformater";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // YouTube-style sidebar video item component
@@ -136,8 +135,8 @@ export default function WatchPage() {
   const params = useParams();
   const router = useRouter();
   const videoId = params.id as Id<"videos">;
-  const { guestId } = useGuestIdentity();
-  const { isSignedIn, user } = useUser();
+  const guestId = useGuestId();
+  const { isAuthenticated } = useConvexAuth();
   const [retrying, setretrying] = useState(false)
   // Fetch video with guestId for permission check
   const video = useQuery(api.videos.getvideobyId, {
@@ -148,7 +147,6 @@ export default function WatchPage() {
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null);
   const [showDislikeMenu, setShowDislikeMenu] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
   const handleRetry = async () => {
     setretrying(true);
     if (!video?.prompt) {
@@ -158,7 +156,7 @@ export default function WatchPage() {
     try {
       await retry({ videoId: videoId });
       toast.success("Video generation started");
-    } catch (error) {
+    } catch {
       toast.error("Failed to retry video generation");
     } finally {
       setretrying(false)
@@ -213,26 +211,26 @@ export default function WatchPage() {
   // Guests: fetch guest videos
   const userVideos = useQuery(
     api.videos.getusersvideo,
-    isSignedIn ? {} : "skip",
+    isAuthenticated ? {} : "skip",
   );
   const guestVideos = useQuery(
     api.guest.getguestvideo,
-    !isSignedIn && guestId ? { guestId } : "skip",
+    !isAuthenticated && guestId ? { guestId } : "skip",
   );
 
   // Fetch public showcase videos (only for guests)
   const publicVideos = useQuery(
     api.videos.getpublicvideos,
-    !isSignedIn ? undefined : "skip",
+    !isAuthenticated ? undefined : "skip",
   );
 
   // Filter out current video from sidebar
-  const sidebarVideos = isSignedIn
+  const sidebarVideos = isAuthenticated
     ? userVideos?.filter((v) => v._id !== videoId)
     : guestVideos?.filter((v) => v._id !== videoId);
 
   // Showcase only for guests
-  const showcaseVideos = !isSignedIn
+  const showcaseVideos = !isAuthenticated
     ? publicVideos
       ?.filter((v) => v._id !== videoId && v.guestId !== guestId)
       ?.slice(0, 3)

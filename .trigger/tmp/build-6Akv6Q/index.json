@@ -1,0 +1,33 @@
+{
+  "configPath": "C:\\Users\\pato\\Desktop\\projects\\generative\\.trigger\\tmp\\build-6Akv6Q\\Desktop\\projects\\generative\\trigger.config.mjs",
+  "customConditions": [
+  ],
+  "prompts": [
+  ],
+  "queues": [
+  ],
+  "runtime": "node",
+  "runtimeVersion": "24.21.0",
+  "skills": [
+  ],
+  "tasks": [
+    {
+      "entryPoint": "C:\\Users\\pato\\Desktop\\projects\\generative\\.trigger\\tmp\\build-6Akv6Q\\Desktop\\projects\\generative\\trigger\\generate-video.mjs",
+      "filePath": "trigger/generate-video.ts",
+      "id": "generate-video",
+      "maxDuration": 3000,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 1,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    }
+  ],
+  "timings": {
+    "trigger/generate-video.ts": 660.3137000000006,
+    "trigger/skill-loader.ts": 3.7752000000000407
+  },
+  "workerEntryPoint": "C:\\Users\\pato\\Desktop\\projects\\generative\\.trigger\\tmp\\build-6Akv6Q\\AppData\\Local\\Temp\\bunx-282133747-trigger.dev@latest\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs"
+}

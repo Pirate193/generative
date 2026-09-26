@@ -5,12 +5,11 @@ import { api } from "@/convex/_generated/api";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useGuestIdentity } from "@/lib/fingerprinthook";
-import { Id } from "@/convex/_generated/dataModel";
+import { useGuestId } from "@/lib/guest";
 
 export function GlobalVideoListener() {
   const router = useRouter();
-  const { guestId } = useGuestIdentity();
+  const guestId = useGuestId();
 
   // 1. Listen to the GUEST'S videos (not global recent videos)
   const guestVideos = useQuery(

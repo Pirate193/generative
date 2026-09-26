@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Slider } from "@/components/ui/slider";
 import {
   Play,
@@ -12,12 +12,8 @@ import {
   Download,
   Loader2,
   Subtitles,
-  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { toast } from "sonner";
 
 interface VideoPlayerProps {
   src: string;
@@ -31,7 +27,6 @@ export function VideoPlayer({
   src,
   poster,
   className,
-  title,
   transcript,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,9 +43,6 @@ export function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showSubtitles, setShowSubtitles] = useState(false);
-  const [currentSubtitle, setCurrentSubtitle] = useState("");
-  const canDownload = useQuery(api.subscriptions.canDownloadVideo);
-  const canDownloadAllowed = canDownload?.allowed ?? false;
 
   // Format time (e.g., 65s -> 1:05)
   const formatTime = (time: number) => {
@@ -91,11 +83,10 @@ export function VideoPlayer({
     }));
   };
 
-  // Update current subtitle based on video time
-  useEffect(() => {
+  // Current subtitle derived from transcript and playback time
+  const currentSubtitle = useMemo(() => {
     if (!showSubtitles || !transcript || !duration || !isFinite(duration)) {
-      setCurrentSubtitle("");
-      return;
+      return "";
     }
 
     const subtitles = generateSubtitles(transcript, duration);
@@ -103,7 +94,7 @@ export function VideoPlayer({
       (sub) => currentTime >= sub.start && currentTime < sub.end,
     );
 
-    setCurrentSubtitle(current?.text || "");
+    return current?.text || "";
   }, [currentTime, showSubtitles, transcript, duration]);
 
   // --- Handlers ---
@@ -174,26 +165,12 @@ export function VideoPlayer({
   };
 
   const handleDownload = async () => {
-    if (!canDownloadAllowed) {
-      toast.error("Pro feature", {
-        description: "Upgrade to Pro to download videos.",
-      });
-      return;
-    }
     try {
       const downloadUrl = `/api/download?url=${encodeURIComponent(src)}`;
       window.location.href = downloadUrl;
     } catch (e) {
       console.error("Download failed", e);
       window.open(src, "_blank");
-    }
-  };
-
-  // Prevent right-click context menu on video
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!canDownloadAllowed) {
-      toast.error("Downloads are for Pro users only");
     }
   };
 
@@ -212,21 +189,6 @@ export function VideoPlayer({
       }, 1000);
     }
   };
-
-  // Block Ctrl+S save shortcut
-  useEffect(() => {
-    const handleSaveShortcut = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        if (!canDownloadAllowed) {
-          toast.error("Downloads are for Pro users only");
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleSaveShortcut);
-    return () => window.removeEventListener("keydown", handleSaveShortcut);
-  }, [canDownloadAllowed]);
 
   // Keyboard controls (spacebar to play/pause)
   useEffect(() => {
@@ -290,8 +252,6 @@ export function VideoPlayer({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onClick={togglePlay}
-        onContextMenu={handleContextMenu}
-        controlsList="nodownload"
       />
 
       {/* 2. Loading Overlay */}
@@ -407,16 +367,9 @@ export function VideoPlayer({
             <button
               onClick={handleDownload}
               className="p-1.5 rounded-md cursor-pointer transition-all relative text-white"
-              title={
-                canDownloadAllowed
-                  ? "Download Video"
-                  : "Pro feature - Upgrade to download"
-              }
+              title="Download Video"
             >
               <Download className="w-4 h-4" />
-              {!canDownloadAllowed && (
-                <Lock className="w-2 h-2 absolute -top-0.5 -right-0.5 text-amber-400" />
-              )}
             </button>
 
             {/* Fullscreen */}

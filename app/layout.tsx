@@ -5,7 +5,6 @@ import ConvexClientProvider from "@/providers/convexprovider";
 import { ThemeProvider } from "@/providers/themeprovider";
 import { Toaster } from "sonner";
 import { GlobalVideoListener } from "@/components/globallistener";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -24,8 +23,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Foldex - AI Video Generator",
-  description: "Turn prompts, PDFs, and docs into stunning Manim videos",
+  title: "Generative - AI Manim Video Generator",
+  description:
+    "Turn prompts, PDFs, and docs into stunning animated educational videos, powered by Qwen",
 };
 
 export default function RootLayout({
@@ -34,28 +34,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <ConvexClientProvider>
-        <html
-          lang="en"
-          className={jetbrainsMono.variable}
-          suppressHydrationWarning
-        >
-          <body className={`${geistSans.variable} ${geistMono.variable} `}>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="light"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster />
-              <GlobalVideoListener />
-              <Analytics />
-            </ThemeProvider>
-          </body>
-        </html>
-      </ConvexClientProvider>
-    </ClerkProvider>
+    <html
+      lang="en"
+      className={jetbrainsMono.variable}
+      suppressHydrationWarning
+    >
+      <body className={`${geistSans.variable} ${geistMono.variable} `}>
+        <ConvexClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+            <GlobalVideoListener />
+            <Analytics />
+          </ThemeProvider>
+        </ConvexClientProvider>
+      </body>
+    </html>
   );
 }

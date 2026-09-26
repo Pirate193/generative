@@ -8,9 +8,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Lock,
-  Crown,
 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,36 +15,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Videocard from "@/components/videocard";
 import { Header } from "@/components/header";
-import { useUser } from "@clerk/nextjs";
-import SubscriptionDialog from "@/components/pricingdialog";
-import { AuthDialog } from "@/components/auth";
 
 const VIDEOS_PER_PAGE = 12;
 
 const WatchList = () => {
   const router = useRouter();
-  const { isSignedIn } = useUser();
-  const videos = useQuery(api.videos.getPublicVideosWithAccess);
+  const videos = useQuery(api.videos.getpublicvideos);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [showPricing, setShowPricing] = useState(false);
 
-  // Separate free and locked videos
-  const { freeVideos, lockedVideos, filteredVideos } = useMemo(() => {
-    if (!videos)
-      return { freeVideos: [], lockedVideos: [], filteredVideos: [] };
+  const filteredVideos = useMemo(() => {
+    if (!videos) return [];
 
     const searchLower = search.toLowerCase();
-    const filtered = search.trim()
+    return search.trim()
       ? videos.filter((video) =>
           video.title?.toLowerCase().includes(searchLower),
         )
       : videos;
-
-    const free = filtered.filter((v) => v.isFreeToday || !v.isLocked);
-    const locked = filtered.filter((v) => v.isLocked && !v.isFreeToday);
-
-    return { freeVideos: free, lockedVideos: locked, filteredVideos: filtered };
   }, [videos, search]);
 
   // Pagination calculations
@@ -55,9 +40,6 @@ const WatchList = () => {
   const startIndex = (currentPage - 1) * VIDEOS_PER_PAGE;
   const endIndex = startIndex + VIDEOS_PER_PAGE;
   const paginatedVideos = filteredVideos.slice(startIndex, endIndex);
-
-  // Check if any videos are locked (user needs to upgrade)
-  const hasLockedVideos = lockedVideos.length > 0;
 
   // Reset to page 1 when search changes
   const handleSearchChange = (value: string) => {
@@ -114,70 +96,10 @@ const WatchList = () => {
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-bold text-center">Video Library</h1>
             <p className="text-sm text-muted-foreground text-center">
-              Watch thousands of videos from the community to help you learn
+              Watch videos from the community to help you learn
             </p>
           </div>
         </div>
-
-        {/* Upgrade Banner for non-Pro users */}
-        {/* {hasLockedVideos && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-500/20">
-                  <Crown className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="font-medium">
-                    Unlock all {lockedVideos.length} locked videos
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Upgrade to Pro for unlimited access to the entire library
-                  </p>
-                </div>
-              </div>
-              {isSignedIn ? (
-                <Button
-                  onClick={() => setShowPricing(true)}
-                  className=" cursor-pointer"
-                >
-                  Upgrade to Pro
-                </Button>
-              ) : (
-                <AuthDialog>
-                  <Button className=" cursor-pointer">Sign In</Button>
-                </AuthDialog>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Free Today Section */}
-        {/* {freeVideos.filter((v) => v.isFreeToday).length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              <h2 className="text-xl font-bold">Free Today</h2>
-              <span className="text-sm text-muted-foreground">
-                • Refreshes daily
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-2">
-              {freeVideos
-                .filter((v) => v.isFreeToday)
-                .map((video) => (
-                  <Videocard
-                    key={video._id}
-                    videoId={video._id}
-                    onClick={() => router.push(`/watch/${video._id}`)}
-                    allowed={false}
-                    // isLocked={false}
-                    // isFreeToday={true}
-                  />
-                ))}
-            </div>
-          </div>
-        )} */}
 
         {/* Search Bar */}
         <div className="mb-6">
@@ -221,7 +143,7 @@ const WatchList = () => {
                 <p className="text-muted-foreground max-w-md">
                   {search
                     ? `No videos match "${search}". Try a different search term.`
-                    : "No videos have been added to video vault yet."}
+                    : "No videos have been added to the library yet."}
                 </p>
               </div>
 
@@ -239,15 +161,8 @@ const WatchList = () => {
                   <Videocard
                     key={video._id}
                     videoId={video._id}
-                    onClick={() => {
-                      // if (!video.isLocked) {
-                      //   router.push(`/watch/${video._id}`);
-                      // }
-                      router.push(`/watch/${video._id}`);
-                    }}
+                    onClick={() => router.push(`/watch/${video._id}`)}
                     allowed={false}
-                    // isLocked={video.isLocked}
-                    // isFreeToday={video.isFreeToday}
                   />
                 ))}
               </div>
@@ -317,9 +232,6 @@ const WatchList = () => {
           )}
         </div>
       </div>
-
-      {/* Pricing Dialog */}
-      <SubscriptionDialog isOpen={showPricing} onOpenChange={setShowPricing} />
     </>
   );
 };

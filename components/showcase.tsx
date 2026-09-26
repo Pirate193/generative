@@ -2,16 +2,16 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useGuestIdentity } from "@/lib/fingerprinthook";
+import { useGuestId } from "@/lib/guest";
 import Videocard from "./videocard";
 import { useRouter } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import { Skeleton } from "./ui/skeleton";
-import { Video, Sparkles, Divide } from "lucide-react";
+import { Video, Sparkles } from "lucide-react";
 
 export const Showcase = () => {
   const router = useRouter();
-  const { guestId } = useGuestIdentity();
+  const guestId = useGuestId();
 
   // Fetch guest's own videos
   const guestVideos = useQuery(

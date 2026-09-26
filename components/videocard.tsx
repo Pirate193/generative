@@ -8,13 +8,9 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
   AlertCircle,
-  Globe,
-  Lock,
   MoreVertical,
   Play,
   RefreshCw,
-  Sparkles,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -32,22 +28,11 @@ interface VideocardProps {
   videoId: Id<"videos">;
   onClick: () => void;
   allowed: boolean;
-  isLocked?: boolean;
-  isFreeToday?: boolean;
 }
 
-const Videocard = ({
-  videoId,
-  onClick,
-  allowed,
-  isLocked = false,
-  isFreeToday = false,
-}: VideocardProps) => {
+const Videocard = ({ videoId, onClick, allowed }: VideocardProps) => {
   const video = useQuery(api.videos.getvideobyId, { videoId: videoId });
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const deletevideo = useMutation(api.videos.deletevideo);
-  const makepublic = useMutation(api.videos.makepublic);
-  const [opendeleteDialog, setOpendedeleteDialog] = useState(false);
   const redo = useMutation(api.videos.retryvideo);
 
   // Loading State
@@ -73,33 +58,9 @@ const Videocard = ({
     try {
       await redo({ videoId: videoId });
       toast.success("Video generation started");
-    } catch (error) {
+    } catch {
       toast.error("Failed to retry video generation");
     }
-  };
-
-  const handleMakePublic = async () => {
-    if (video.templateId) {
-      toast.info("cloned videos can't be made public");
-      return;
-    }
-    await makepublic({ videoId: videoId });
-    toast.success(video.public ? "Video made private" : "Video made public");
-  };
-
-  const handleDelete = async () => {
-    await deletevideo({ videoId });
-    toast.success("Video deleted successfully");
-  };
-
-  const handleClick = () => {
-    if (isLocked) {
-      toast.error("This video is locked", {
-        description: "Upgrade to Pro to access all videos",
-      });
-      return;
-    }
-    onClick();
   };
 
   // Get creator initials
@@ -218,10 +179,9 @@ const Videocard = ({
 
   return (
     <div
-      onClick={handleClick}
+      onClick={onClick}
       className={cn(
         "bg-card text-card-foreground shadow-sm cursor-pointer group h-full p-2",
-        isLocked && "cursor-not-allowed",
       )}
     >
       {/* Thumbnail Container */}
@@ -239,7 +199,6 @@ const Videocard = ({
             className={cn(
               "object-cover transition-transform duration-300 group-hover:scale-105",
               !isImageLoaded && "opacity-0",
-              isLocked && "group-hover:scale-100",
             )}
             onLoad={() => setIsImageLoaded(true)}
           />
@@ -249,36 +208,12 @@ const Videocard = ({
           </div>
         )}
 
-        {/* Locked Overlay */}
-        {isLocked && (
-          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 z-10">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              <Lock className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-white text-sm font-medium">
-              Upgrade to watch
-            </span>
+        {/* Play Button Overlay - Shows on Hover */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <div className="bg-primary p-4 transform scale-90 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+            <Play className="w-6 h-6 text-white fill-white" />
           </div>
-        )}
-
-        {/* Free Today Badge */}
-        {isFreeToday && !isLocked && (
-          <div className="absolute top-2 left-2 z-10">
-            <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-semibold shadow-lg">
-              <Sparkles className="w-3 h-3" />
-              FREE TODAY
-            </div>
-          </div>
-        )}
-
-        {/* Play Button Overlay - Shows on Hover (only for unlocked) */}
-        {!isLocked && (
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-primary p-4 transform scale-90 group-hover:scale-100 transition-transform duration-300 shadow-lg">
-              <Play className="w-6 h-6 text-white fill-white" />
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Text Content */}
@@ -288,7 +223,6 @@ const Videocard = ({
           <h3
             className={cn(
               "font-semibold tracking-tight truncate leading-tight line-clamp-2 text-card-foreground",
-              isLocked && "text-muted-foreground",
             )}
           >
             {video.title || "Untitled Video"}

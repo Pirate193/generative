@@ -6,17 +6,15 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useUser } from "@clerk/nextjs";
+import { useConvexAuth } from "convex/react";
 import { AuthDialog } from "./auth";
 import { ProfileDropdown } from "./profile-dropdown";
-
-const menuItems = [{ name: "VideoVault", href: "/videovault" }];
 
 export const Header = () => {
   const [menuState, setMenuState] = React.useState(false);
   const [isScrolled, setIsScrolled] = React.useState(false);
   const { theme, setTheme } = useTheme();
-  const { isSignedIn, isLoaded } = useUser();
+  const { isAuthenticated, isLoading } = useConvexAuth();
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -46,7 +44,7 @@ export const Header = () => {
                 aria-label="home"
                 className="flex items-center space-x-2"
               >
-                <Image src="/icon.png" alt="folder" width="32" height="32" />
+                <Image src="/icon.png" alt="Generative" width="32" height="32" />
               </Link>
 
               <button
@@ -62,12 +60,12 @@ export const Header = () => {
             <div className="bg-background in-data-[state=active]:block lg:in-data-[state=active]:flex mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
               <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit items-center">
                 {/* Loading state */}
-                {!isLoaded && (
+                {isLoading && (
                   <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
                 )}
 
                 {/* Logged in state */}
-                {isLoaded && isSignedIn && (
+                {!isLoading && isAuthenticated && (
                   <>
                     {/* Theme toggle - only show when scrolled on desktop */}
                     <Button
@@ -96,7 +94,7 @@ export const Header = () => {
                 )}
 
                 {/* Logged out state */}
-                {isLoaded && !isSignedIn && (
+                {!isLoading && !isAuthenticated && (
                   <>
                     {/* Theme Toggle */}
                     <Button

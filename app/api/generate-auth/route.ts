@@ -3,12 +3,12 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { extractText } from "unpdf";
 import mammoth from "mammoth";
-import { auth } from "@clerk/nextjs/server";
+import { getToken } from "@/lib/auth-server";
 
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
+  const token = await getToken();
 
-  if (!userId) {
+  if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,18 +18,11 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
 
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-  // Get auth token for authenticated Convex calls
-  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
-
-  if (token) {
-    convex.setAuth(token);
-  }
+  convex.setAuth(token);
 
   let context = "";
 
   try {
-    // Extract text from file if provided
     if (file) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -53,16 +46,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call the authenticated video generation mutation
     const videoId = await convex.mutation(api.videos.scheduleauthvideo, {
       prompt: prompt,
       context: context,
     });
 
     return NextResponse.json({ success: true, videoId });
-  } catch (error: any) {
+  } catch (error) {
     console.log("video generation failed", error);
-    const message = error?.message || "Internal Server Error";
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

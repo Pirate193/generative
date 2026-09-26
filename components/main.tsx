@@ -14,13 +14,9 @@ import { Label } from "./ui/label";
 import { TextLoop } from "./ui/text-loop";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useGuestIdentity } from "@/lib/fingerprinthook";
+import { useGuestId } from "@/lib/guest";
 import { Textarea } from "./ui/textarea";
-import { LoginPromptDialog } from "./login-prompt-dialog";
-import { useUser, useAuth } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import SubscriptionDialog from "./pricingdialog";
+import { useConvexAuth } from "convex/react";
 
 const Main = () => {
   const router = useRouter();
@@ -28,20 +24,9 @@ const Main = () => {
   const [selectedfile, setselectedfile] = useState<File | null>(null);
   const fileinputref = useRef<HTMLInputElement>(null);
   const [isGenerating, setisGenerating] = useState(false);
-  const { guestId, fingerprint } = useGuestIdentity();
+  const guestId = useGuestId();
 
-  // Auth state
-  const { isSignedIn, user } = useUser();
-  const { getToken } = useAuth();
-
-  // Subscription checks
-  const canGenerate = useQuery(api.subscriptions.canGenerateVideo);
-
-  // Dialog states
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showPricing, setShowPricing] = useState(false);
-  const [pendingVideoId, setPendingVideoId] = useState<string | null>(null);
-  const [pendingVideoTitle, setPendingVideoTitle] = useState<string>("");
+  const { isAuthenticated } = useConvexAuth();
 
   const suggestions = [
     "Explain Neural Networks",
@@ -49,65 +34,43 @@ const Main = () => {
     "Explain Pythagorean theorem",
   ];
 
-  // Handle authenticated user generation
-  const handleAuthGeneration = async () => {
-    // Check if user has reached their limit
-    if (canGenerate && !canGenerate.allowed) {
-      if (canGenerate.reason === "free_limit_reached") {
-        toast.error("You've reached your free video limit!", {
-          description: `You've used ${canGenerate.videosGenerated}/${canGenerate.videosLimit} free videos.`,
-          action: {
-            label: "Upgrade to Pro",
-            onClick: () => setShowPricing(true),
-          },
-          duration: 10000,
-        });
-      } else {
-        toast.error("Video generation limit reached. Try again later.");
-      }
-      return;
-    }
+  const handlesend = async () => {
+    if (!prompt.trim()) return;
 
     setisGenerating(true);
-    setPrompt("");
     try {
       const formdata = new FormData();
       formdata.append("prompt", prompt);
       if (selectedfile) formdata.append("file", selectedfile);
 
-      // Get auth token for the API
-      const token = await getToken({ template: "convex" });
-
-      const response = await fetch("/api/generate-auth", {
-        method: "POST",
-        body: formdata,
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      let response: Response;
+      if (isAuthenticated) {
+        response = await fetch("/api/generate-auth", {
+          method: "POST",
+          body: formdata,
+        });
+      } else {
+        if (!guestId) {
+          toast.error("Please wait, initializing...");
+          return;
+        }
+        formdata.append("guestId", guestId);
+        response = await fetch("/api/generate", {
+          method: "POST",
+          body: formdata,
+        });
+      }
 
       const data = await response.json();
 
       if (!response.ok) {
+        const rawError = data.error || data.message || "Video generation failed";
         const errorMessage =
-          typeof data.error === "string"
-            ? data.error
-            : JSON.stringify(data.error);
-
-        if (
-          errorMessage.toLowerCase().includes("limit") ||
-          errorMessage.toLowerCase().includes("upgrade")
-        ) {
-          toast.error("Video limit reached!", {
-            action: {
-              label: "Upgrade to Pro",
-              onClick: () => setShowPricing(true),
-            },
-          });
-          return;
-        }
-
+          typeof rawError === "string" ? rawError : JSON.stringify(rawError);
         throw new Error(errorMessage);
       }
 
+      setPrompt("");
       toast.success("Video submitted! We'll notify you when it's ready.");
       router.replace(`/watch/${data.videoId}`);
     } catch (error) {
@@ -119,85 +82,6 @@ const Main = () => {
       toast.error(message);
     } finally {
       setisGenerating(false);
-    }
-  };
-
-  // Handle guest generation
-  const handleGuestGeneration = async () => {
-    if (!guestId || !fingerprint) {
-      toast.error("Please wait, initializing...");
-      return;
-    }
-    setPrompt("");
-    setisGenerating(true);
-    try {
-      const formdata = new FormData();
-      formdata.append("prompt", prompt);
-      if (selectedfile) formdata.append("file", selectedfile);
-      formdata.append("guestId", guestId);
-      formdata.append("fingerprint", fingerprint);
-
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        body: formdata,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const rawError =
-          data.error || data.message || "Video generation failed";
-        const errorMessage =
-          typeof rawError === "string" ? rawError : JSON.stringify(rawError);
-
-        // Check if it's a guest limit error
-        if (
-          errorMessage.toLowerCase().includes("limit") ||
-          errorMessage.toLowerCase().includes("sign up")
-        ) {
-          toast.error("You've reached the free guest limit!", {
-            description: "Sign in to continue creating videos.",
-          });
-          setShowLoginPrompt(true);
-          return;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      // Success - show login prompt for guests
-      setPendingVideoId(data.videoId);
-      setPendingVideoTitle(
-        prompt.slice(0, 50) + (prompt.length > 50 ? "..." : ""),
-      );
-      setShowLoginPrompt(true);
-    } catch (error) {
-      console.error("video generation error", error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Video generation failed. Please try again.";
-      toast.error(message);
-    } finally {
-      setisGenerating(false);
-    }
-  };
-
-  // Main send handler
-  const handlesend = async () => {
-    if (!prompt.trim()) return;
-
-    if (isSignedIn) {
-      await handleAuthGeneration();
-    } else {
-      await handleGuestGeneration();
-    }
-  };
-
-  const handleLoginPromptClose = () => {
-    setShowLoginPrompt(false);
-    if (pendingVideoId) {
-      router.replace(`/watch/${pendingVideoId}`);
     }
   };
 
@@ -356,16 +240,6 @@ const Main = () => {
           </div>
         </div>
       </div>
-
-      {/* Login Prompt Dialog - for guests */}
-      <LoginPromptDialog
-        isOpen={showLoginPrompt}
-        onClose={handleLoginPromptClose}
-        videoTitle={pendingVideoTitle}
-      />
-
-      {/* Pricing Dialog - for limit reached */}
-      <SubscriptionDialog isOpen={showPricing} onOpenChange={setShowPricing} />
     </div>
   );
 };
